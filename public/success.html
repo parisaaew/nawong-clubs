@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ลงทะเบียนสำเร็จ - โรงเรียนวัดนาวง</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Custom print-specific styles */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            header, footer, .no-print {
+                display: none !important;
+            }
+            main {
+                margin: 0;
+                padding: 0;
+            }
+            .content-box {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .receipt {
+                border: 1px solid #000;
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>โรงเรียนวัดนาวง</h1>
+        <p>ระบบลงทะเบียนเลือกกิจกรรมชุมนุม ประจำปีการศึกษา</p>
+    </header>
+
+    <main>
+        <div class="content-box text-center">
+            <!-- Green Check Icon -->
+            <svg style="width: 72px; height: 72px; fill: var(--success); margin-bottom: 1rem;" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            
+            <h2 style="color: var(--success); font-size: 1.8rem; margin-bottom: 0.5rem;">ลงทะเบียนสำเร็จ!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">ระบบได้บันทึกข้อมูลการเลือกกิจกรรมชุมนุมของคุณเรียบร้อยแล้ว</p>
+
+            <!-- Receipt Box -->
+            <div id="receipt-container" class="receipt text-left" style="text-align: left;">
+                <div class="receipt-row">
+                    <span class="receipt-label">ชื่อ - นามสกุล:</span>
+                    <span class="receipt-value" id="receipt-fullname">-</span>
+                </div>
+                <div class="receipt-row">
+                    <span class="receipt-label">ระดับชั้น:</span>
+                    <span class="receipt-value" id="receipt-class">-</span>
+                </div>
+                <div class="receipt-row">
+                    <span class="receipt-label">เลขที่:</span>
+                    <span class="receipt-value" id="receipt-number">-</span>
+                </div>
+                <div class="receipt-row">
+                    <span class="receipt-label">กิจกรรมชุมนุมที่เลือก:</span>
+                    <span class="receipt-value" id="receipt-club" style="color: var(--primary);">-</span>
+                </div>
+                <div class="receipt-row">
+                    <span class="receipt-label">วันที่ลงทะเบียน:</span>
+                    <span class="receipt-value" id="receipt-date">-</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="no-print" style="margin-top: 2rem; display: flex; justify-content: center; gap: 1rem;">
+                <button onclick="window.print()" class="btn btn-primary">
+                    <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
+                        <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+                    </svg>
+                    พิมพ์ใบยืนยัน (Print)
+                </button>
+                <a href="/" class="btn btn-secondary">
+                    กลับหน้าหลัก
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 โรงเรียนวัดนาวง. ระบบเลือกกิจกรรมชุมนุมออนไลน์.
+    </footer>
+
+    <script>
+        window.onload = function() {
+            // Retrieve registration details from sessionStorage
+            const receiptData = sessionStorage.getItem('reg_receipt');
+            if (!receiptData) {
+                // If no receipt data, redirect back to home
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const student = JSON.parse(receiptData);
+                document.getElementById('receipt-fullname').innerText = student.prefix + ' ' + student.firstname + ' ' + student.lastname;
+                document.getElementById('receipt-class').innerText = student.level + ' ห้อง ' + student.room;
+                document.getElementById('receipt-number').innerText = student.number;
+                document.getElementById('receipt-club').innerText = student.club_name;
+                document.getElementById('receipt-date').innerText = formatDateTimeThai(student.registered_at);
+            } catch (e) {
+                console.error(e);
+                window.location.href = '/';
+            }
+        };
+
+        function formatDateTimeThai(dateTimeStr) {
+            if (!dateTimeStr) return "-";
+            // Check if string contains timezone or space separator
+            const normalized = dateTimeStr.replace(' ', 'T');
+            const dt = new Date(normalized);
+            if (isNaN(dt.getTime())) return dateTimeStr;
+            return dt.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }) + " น.";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบลงทะเบียนเลือกชุมนุม - โรงเรียนวัดนาวง</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-link-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+        .admin-link-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #ffffff;
+        }
+        @media (max-width: 600px) {
+            .admin-link-btn {
+                position: static;
+                display: inline-block;
+                margin-top: 1rem;
+                background: var(--primary);
+                border: 1px solid var(--border-color);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="/admin" class="admin-link-btn">สำหรับผู้ดูแลระบบ</a>
+        <h1>โรงเรียนวัดนาวง</h1>
+        <p>ระบบลงทะเบียนเลือกกิจกรรมชุมนุม ประจำปีการศึกษา</p>
+    </header>
+
+    <main>
+        <!-- System Status Alert (Closed/Not Open Yet) -->
+        <div id="status-container" class="content-box text-center" style="display: none; animation: fadeIn 0.4s ease;">
+            <svg style="width: 64px; height: 64px; fill: var(--warning); margin-bottom: 1rem;" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <h2 id="status-title" style="margin-bottom: 0.5rem; color: var(--primary);">ระบบยังไม่เปิดรับลงทะเบียน</h2>
+            <p id="status-message" style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: 1.5rem;"></p>
+            <div id="status-time-info" style="font-size: 0.95rem; color: var(--text-muted); background: var(--bg-primary); padding: 1rem; border-radius: var(--radius-md); display: inline-block;"></div>
+            <div class="mt-4">
+                <a href="/admin" class="btn btn-secondary">สำหรับผู้ดูแลระบบ</a>
+            </div>
+        </div>
+
+        <!-- Registration Form -->
+        <div id="registration-container" class="content-box" style="display: none;">
+            <h2 class="section-title">
+                <svg style="width: 24px; height: 24px; fill: currentColor;" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                กรอกข้อมูลนักเรียน
+            </h2>
+
+            <div id="error-alert" class="alert alert-danger">
+                <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span id="error-message"></span>
+            </div>
+
+            <form id="register-form" onsubmit="submitForm(event)">
+                <!-- Personal Info Rows -->
+                <div class="form-row">
+                    <div class="form-group" style="flex: 0 0 150px;">
+                        <label for="prefix">คำนำหน้า <span style="color: var(--danger);">*</span></label>
+                        <select id="prefix" required>
+                            <option value="" disabled selected>-- เลือก --</option>
+                            <option value="เด็กชาย">เด็กชาย</option>
+                            <option value="เด็กหญิง">เด็กหญิง</option>
+                            <option value="นาย">นาย</option>
+                            <option value="นางสาว">นางสาว</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="firstname">ชื่อ <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="firstname" placeholder="ตัวอย่าง: สมชาย" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastname">นามสกุล <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="lastname" placeholder="ตัวอย่าง: รักดี" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="level">ระดับชั้น <span style="color: var(--danger);">*</span></label>
+                        <select id="level" onchange="handleLevelChange()" required>
+                            <option value="" disabled selected>-- เลือกชั้น --</option>
+                            <option value="ม.1">ม.1</option>
+                            <option value="ม.2">ม.2</option>
+                            <option value="ม.3">ม.3</option>
+                            <option value="ม.4">ม.4</option>
+                            <option value="ม.5">ม.5</option>
+                            <option value="ม.6">ม.6</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="room">ห้องเรียน <span style="color: var(--danger);">*</span></label>
+                        <select id="room" required>
+                            <option value="" disabled selected>-- เลือกห้อง --</option>
+                            <option value="1">ห้อง 1</option>
+                            <option value="2">ห้อง 2</option>
+                            <option value="3">ห้อง 3</option>
+                            <option value="4">ห้อง 4</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="number">เลขที่ <span style="color: var(--danger);">*</span></label>
+                        <input type="number" id="number" min="1" placeholder="ตัวอย่าง: 15" required>
+                    </div>
+                </div>
+
+                <!-- Club Selection Dropdown -->
+                <h2 class="section-title" style="margin-top: 2.5rem;">
+                    <svg style="width: 24px; height: 24px; fill: currentColor;" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+                    </svg>
+                    เลือกกิจกรรมชุมนุม <span style="color: var(--danger);">*</span>
+                </h2>
+                
+                <div class="form-group">
+                    <label for="club-select">กิจกรรมชุมนุมที่เปิดรับสมัคร</label>
+                    <select id="club-select" required>
+                        <option value="" disabled selected>-- กรุณาเลือกกิจกรรมชุมนุม --</option>
+                    </select>
+                </div>
+
+                <div class="mt-4" style="margin-top: 2.5rem;">
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-block">ยืนยันการลงทะเบียน</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 โรงเรียนวัดนาวง. ระบบเลือกกิจกรรมชุมนุมออนไลน์.
+    </footer>
+
+    <script>
+        let clubsList = [];
+
+        // Check system status and load clubs
+        async function init() {
+            try {
+                // Fetch settings first to see if system is open
+                const settingsRes = await fetch('/api/admin/settings');
+                const settings = await settingsRes.json();
+                
+                // Fetch clubs list
+                const clubsRes = await fetch('/api/clubs');
+                clubsList = await clubsRes.json();
+
+                // Determine if open
+                const isOpen = checkSystemOpen(settings);
+                
+                if (isOpen) {
+                    document.getElementById('registration-container').style.display = 'block';
+                    renderClubs();
+                } else {
+                    document.getElementById('status-container').style.display = 'block';
+                    displayStatusMessage(settings);
+                }
+            } catch (err) {
+                console.error(err);
+                showError("ไม่สามารถติดต่อเครื่องแม่ข่ายได้ กรุณาลองใหม่อีกครั้ง");
+            }
+        }
+
+        function checkSystemOpen(settings) {
+            if (settings.reg_status === 'closed') {
+                return false;
+            }
+            const now = new Date().toISOString().slice(0, 16);
+            if (settings.reg_start && now < settings.reg_start) {
+                return false;
+            }
+            if (settings.reg_end && now > settings.reg_end) {
+                return false;
+            }
+            return true;
+        }
+
+        function displayStatusMessage(settings) {
+            const statusTitle = document.getElementById('status-title');
+            const statusMessage = document.getElementById('status-message');
+            const timeInfo = document.getElementById('status-time-info');
+
+            if (settings.reg_status === 'closed') {
+                statusTitle.innerText = "ระบบปิดรับลงทะเบียนชั่วคราว";
+                statusMessage.innerText = "ผู้ดูแลระบบได้สั่งปิดระบบลงทะเบียนชั่วคราว กรุณาติดต่อครูผู้รับผิดชอบงานกิจกรรมนักเรียน";
+                timeInfo.style.display = "none";
+                return;
+            }
+
+            const now = new Date().toISOString().slice(0, 16);
+            if (settings.reg_start && now < settings.reg_start) {
+                statusTitle.innerText = "ระบบยังไม่เปิดรับลงทะเบียน";
+                statusMessage.innerText = "การลงทะเบียนกิจกรรมชุมนุมจะเปิดตามกำหนดเวลาด้านล่างนี้";
+                timeInfo.innerHTML = `
+                    <strong>เวลาเปิดระบบ:</strong> ${formatDateTimeThai(settings.reg_start)} <br>
+                    <strong>เวลาปิดระบบ:</strong> ${settings.reg_end ? formatDateTimeThai(settings.reg_end) : 'เปิดเรื่อยๆ จนกว่าแอดมินจะปิด'}
+                `;
+            } else if (settings.reg_end && now > settings.reg_end) {
+                statusTitle.innerText = "ระบบปิดรับลงทะเบียนแล้ว";
+                statusMessage.innerText = "สิ้นสุดช่วงเวลาเปิดให้ลงทะเบียนเลือกชุมนุมแล้ว";
+                timeInfo.innerHTML = `
+                    <strong>เวลาเปิดระบบ:</strong> ${settings.reg_start ? formatDateTimeThai(settings.reg_start) : '-'}<br>
+                    <strong>เวลาปิดระบบ:</strong> ${formatDateTimeThai(settings.reg_end)}
+                `;
+            }
+        }
+
+        function formatDateTimeThai(isoString) {
+            if (!isoString) return "-";
+            const dt = new Date(isoString);
+            return dt.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) + " น.";
+        }
+
+        // Render Clubs inside the Dropdown select
+        function renderClubs() {
+            const select = document.getElementById('club-select');
+            const currentSelected = select.value;
+            
+            // Clear but keep first option
+            select.innerHTML = '<option value="" disabled selected>-- กรุณาเลือกกิจกรรมชุมนุม --</option>';
+            
+            const levelVal = document.getElementById('level').value;
+            const isJuniorHigh = levelVal && ["ม.1", "ม.2", "ม.3"].includes(levelVal);
+
+            clubsList.forEach(club => {
+                const available = club.capacity - club.registered;
+                const isFull = available <= 0;
+                
+                // Grade limit restriction: "สภานักเรียน" restricted to High School
+                const isRestricted = club.grade_limit === 'high_school' && isJuniorHigh;
+                
+                const option = document.createElement('option');
+                option.value = club.id;
+                
+                let text = `${club.name} (ครู${club.teacher})`;
+                
+                if (isFull) {
+                    text += " - [เต็มแล้ว]";
+                    option.disabled = true;
+                } else if (isRestricted) {
+                    text += " - [เฉพาะ ม.ปลาย]";
+                    option.disabled = true;
+                } else {
+                    text += ` - (ว่าง ${available}/${club.capacity} ที่นั่ง)`;
+                }
+                
+                option.innerText = text;
+                
+                // If it was selected before and is still valid, select it
+                if (currentSelected == club.id && !option.disabled) {
+                    option.selected = true;
+                }
+                
+                select.appendChild(option);
+            });
+        }
+
+        function handleLevelChange() {
+            // Re-render dropdown to check for High School restrictions dynamically
+            renderClubs();
+            hideError();
+        }
+
+        // Error Alerts helpers
+        function showError(msg) {
+            const alert = document.getElementById('error-alert');
+            const span = document.getElementById('error-message');
+            span.innerText = msg;
+            alert.style.display = 'flex';
+            window.scrollTo({ top: alert.offsetTop - 50, behavior: 'smooth' });
+        }
+
+        function hideError() {
+            document.getElementById('error-alert').style.display = 'none';
+        }
+
+        // Form Submission
+        async function submitForm(e) {
+            e.preventDefault();
+            hideError();
+
+            const clubSelect = document.getElementById('club-select');
+            const clubId = clubSelect.value;
+
+            if (!clubId) {
+                showError("กรุณาเลือกกิจกรรมชุมนุมที่ต้องการลงทะเบียน");
+                return;
+            }
+
+            const prefix = document.getElementById('prefix').value;
+            const firstname = document.getElementById('firstname').value.trim();
+            const lastname = document.getElementById('lastname').value.trim();
+            const level = document.getElementById('level').value;
+            const room = document.getElementById('room').value;
+            const number = document.getElementById('number').value;
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.innerText = "กำลังลงทะเบียน...";
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prefix,
+                        firstname,
+                        lastname,
+                        level,
+                        room: parseInt(room),
+                        number: parseInt(number),
+                        club_id: parseInt(clubId)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    submitBtn.innerText = "ยืนยันการลงทะเบียน";
+                    submitBtn.disabled = false;
+                } else if (data.success) {
+                    // Save response detail to sessionStorage for success.html
+                    sessionStorage.setItem('reg_receipt', JSON.stringify(data.student));
+                    window.location.href = '/success';
+                }
+            } catch (err) {
+                console.error(err);
+                showError("เกิดข้อผิดพลาดในการเชื่อมต่ออินเทอร์เน็ต กรุณาลองอีกครั้ง");
+                submitBtn.innerText = "ยืนยันการลงทะเบียน";
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>
