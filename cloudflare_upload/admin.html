@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบควบคุมผู้ดูแลระบบ (Admin) - โรงเรียนวัดนาวง</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header>
+        <h1>โรงเรียนวัดนาวง (Admin)</h1>
+        <p>ระบบควบคุมการลงทะเบียนกิจกรรมชุมนุม</p>
+    </header>
+
+    <main>
+        <!-- 1. LOGIN INTERFACE -->
+        <div id="login-container" class="content-box login-card" style="display: none;">
+            <h2 class="section-title text-center" style="justify-content: center;">เข้าสู่ระบบ Admin</h2>
+            <div id="login-error" class="alert alert-danger" style="display: none;">
+                รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="admin-password">รหัสผ่านผู้ดูแลระบบ</label>
+                    <input type="password" id="admin-password" placeholder="ระบุรหัสผ่าน" required style="width: 100%; padding: 0.75rem; border: 1.5px solid var(--border-color); border-radius: var(--radius-md); font-size: 1rem; margin-bottom: 1rem;">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">เข้าสู่ระบบ</button>
+            </form>
+            <div class="text-center mt-4">
+                <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">กลับหน้าลงทะเบียนนักเรียน</a>
+            </div>
+        </div>
+
+        <!-- 2. MAIN ADMIN DASHBOARD -->
+        <div id="dashboard-container" style="display: none;">
+            
+            <!-- Navbar / Header Actions -->
+            <div class="admin-navbar">
+                <div>
+                    <span style="font-weight: 600; font-size: 1.1rem;">แผงผู้ดูแลระบบ</span>
+                    <span id="auth-status" class="badge badge-primary" style="margin-left: 0.5rem;">กำลังเชื่อมต่อ...</span>
+                </div>
+                <button onclick="handleLogout()" class="btn btn-secondary btn-sm">ออกจากระบบ</button>
+            </div>
+
+            <!-- Stat Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-students">0</div>
+                    <div class="stat-label">นักเรียนลงทะเบียนแล้ว (คน)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-seats-taken">0 / 0</div>
+                    <div class="stat-label">ที่นั่งที่ถูกจอง (ทั้งหมด)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-clubs">0</div>
+                    <div class="stat-label">จำนวนชุมนุมทั้งหมด</div>
+                </div>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="admin-tabs">
+                <button onclick="switchTab('tab-registrations')" id="btn-tab-registrations" class="tab-btn active">รายชื่อผู้ลงทะเบียน</button>
+                <button onclick="switchTab('tab-clubs')" id="btn-tab-clubs" class="tab-btn">จัดการชุมนุม</button>
+                <button onclick="switchTab('tab-settings')" id="btn-tab-settings" class="tab-btn">ตั้งค่าระบบ</button>
+            </div>
+
+            <!-- TAB 1: REGISTRATIONS LIST -->
+            <div id="tab-registrations" class="tab-content active">
+                <div class="controls-row">
+                    <div class="flex gap-2" style="flex: 1; min-width: 280px; flex-wrap: wrap;">
+                        <input type="text" id="search-input" class="search-input" placeholder="ค้นหาชื่อ, ห้อง, ชุมนุม..." oninput="filterRegistrations()">
+                        <select id="club-filter" onchange="filterRegistrations()" style="max-width: 250px;">
+                            <option value="">-- แสดงทุกชุมนุม --</option>
+                        </select>
+                    </div>
+                    <button onclick="exportCSV()" class="btn btn-primary">
+                        <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
+                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+                        </svg>
+                        ดาวน์โหลดไฟล์ Excel (CSV)
+                    </button>
+                </div>
+
+                <div id="reg-error-alert" class="alert alert-danger"></div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">ลำดับ</th>
+                                <th>ชื่อ-นามสกุล</th>
+                                <th style="width: 100px;">ชั้น/ห้อง</th>
+                                <th style="width: 80px;">เลขที่</th>
+                                <th>ชุมนุมที่เลือก</th>
+                                <th>ครูผู้ดูแล</th>
+                                <th style="width: 160px;">เวลาที่สมัคร</th>
+                                <th style="width: 80px; text-align: center;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="registrations-tbody">
+                            <tr>
+                                <td colspan="8" class="text-center" style="color: var(--text-muted); padding: 2rem;">กำลังโหลดข้อมูลรายชื่อ...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: CLUBS MANAGEMENT -->
+            <div id="tab-clubs" class="tab-content">
+                <div class="controls-row" style="justify-content: flex-end;">
+                    <button onclick="openClubModal('add')" class="btn btn-primary">
+                        <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        เพิ่มชุมนุมใหม่
+                    </button>
+                </div>
+
+                <div id="club-error-alert" class="alert alert-danger"></div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">ID</th>
+                                <th>ชื่อกิจกรรมชุมนุม</th>
+                                <th>ครูผู้ดูแลกิจกรรม</th>
+                                <th style="width: 120px; text-align: center;">สมัครแล้ว / รับทั้งหมด</th>
+                                <th style="width: 150px;">ข้อจำกัด</th>
+                                <th style="width: 150px; text-align: center;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clubs-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center" style="color: var(--text-muted); padding: 2rem;">กำลังโหลดข้อมูลชุมนุม...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: SYSTEM SETTINGS -->
+            <div id="tab-settings" class="tab-content">
+                <div class="content-box" style="padding: 1.5rem; max-width: 600px; margin: 0 auto;">
+                    <h3 style="margin-bottom: 1.5rem; color: var(--primary);">การเปิด-ปิด ระบบรับสมัคร</h3>
+                    
+                    <div id="settings-success" class="alert alert-success">บันทึกการตั้งค่าระบบเรียบร้อยแล้ว</div>
+                    <div id="settings-error" class="alert alert-danger"></div>
+
+                    <form id="settings-form" onsubmit="saveSettings(event)">
+                        <div class="form-group">
+                            <label for="settings-status">สถานะระบบ (ควบคุมด้วยตนเอง)</label>
+                            <select id="settings-status">
+                                <option value="open">เปิดระบบรับสมัคร</option>
+                                <option value="closed">ปิดระบบรับสมัครชั่วคราว (Manual Override)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="settings-start">วัน-เวลาที่เปิดระบบ</label>
+                                <input type="datetime-local" id="settings-start">
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-end">วัน-เวลาที่ปิดระบบ</label>
+                                <input type="datetime-local" id="settings-end">
+                            </div>
+                        </div>
+
+                        <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary); border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                            เปลี่ยนรหัสผ่านแอดมิน
+                        </h3>
+                        <div class="form-group">
+                            <label for="settings-password">รหัสผ่านใหม่ (ปล่อยว่างหากไม่ต้องการเปลี่ยน)</label>
+                            <input type="password" id="settings-password" placeholder="รหัสผ่านใหม่สำหรับเข้าสู่ระบบ Admin">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1.5rem;">บันทึกการตั้งค่าทั้งหมด</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 3. MODAL FOR ADD / EDIT CLUB -->
+    <div id="club-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">เพิ่มชุมนุม</h3>
+                <button onclick="closeClubModal()" class="modal-close">&times;</button>
+            </div>
+            <div id="modal-error-alert" class="alert alert-danger"></div>
+            <form id="club-form" onsubmit="handleClubSubmit(event)">
+                <input type="hidden" id="modal-club-id">
+                
+                <div class="form-group">
+                    <label for="modal-club-name">ชื่อกิจกรรมชุมนุม <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="modal-club-name" placeholder="ระบุชื่อกิจกรรมชุมนุม" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-club-teacher">ครูผู้ดูแลชุมนุม <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="modal-club-teacher" placeholder="ตัวอย่าง: ครูนวพล" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-club-capacity">จำนวนรับสมัครสูงสุด (คน) <span style="color: var(--danger);">*</span></label>
+                    <input type="number" id="modal-club-capacity" min="1" max="1000" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-club-limit">ข้อจำกัดระดับชั้น</label>
+                    <select id="modal-club-limit">
+                        <option value="none">ไม่จำกัดระดับชั้น (ม.1 - ม.6)</option>
+                        <option value="high_school">รับเฉพาะระดับ ม.ปลาย (ม.4 - ม.6)</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" onclick="closeClubModal()" class="btn btn-secondary">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 โรงเรียนวัดนาวง. ระบบควบคุมผู้ดูแลระบบ.
+    </footer>
+
+    <script>
+        let adminToken = sessionStorage.getItem('admin_token') || '';
+        let registrationsList = [];
+        let clubsList = [];
+        let currentModalMode = 'add'; // 'add' or 'edit'
+
+        // 1. Initial State Handlers
+        window.onload = function() {
+            if (adminToken) {
+                checkAuth();
+            } else {
+                showLogin();
+            }
+        };
+
+        function showLogin() {
+            document.getElementById('login-container').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'block';
+            document.getElementById('auth-status').innerText = "เชื่อมต่อแล้ว";
+            document.getElementById('auth-status').className = "badge badge-primary";
+            
+            // Fetch dashboard data
+            fetchDashboardData();
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/admin/check-auth', {
+                    headers: { 'X-Admin-Token': adminToken }
+                });
+                if (res.status === 200) {
+                    showDashboard();
+                } else {
+                    handleLogout();
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('auth-status').innerText = "ข้อผิดพลาดเซิร์ฟเวอร์";
+                document.getElementById('auth-status').className = "badge badge-danger";
+                showLogin();
+            }
+        }
+
+        // 2. Auth Actions
+        async function handleLogin(e) {
+            e.preventDefault();
+            const password = document.getElementById('admin-password').value;
+            const errDiv = document.getElementById('login-error');
+            errDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                
+                if (data.token) {
+                    adminToken = data.token;
+                    sessionStorage.setItem('admin_token', adminToken);
+                    document.getElementById('admin-password').value = '';
+                    showDashboard();
+                } else {
+                    errDiv.style.display = 'block';
+                    errDiv.innerText = data.error || "รหัสผ่านไม่ถูกต้อง";
+                }
+            } catch (e) {
+                console.error(e);
+                errDiv.style.display = 'block';
+                errDiv.innerText = "ไม่สามารถติดต่อเครื่องแม่ข่ายได้";
+            }
+        }
+
+        function handleLogout() {
+            adminToken = '';
+            sessionStorage.removeItem('admin_token');
+            showLogin();
+        }
+
+        // 3. Tab Management
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+
+            if (tabId === 'tab-registrations') document.getElementById('btn-tab-registrations').classList.add('active');
+            if (tabId === 'tab-clubs') document.getElementById('btn-tab-clubs').classList.add('active');
+            if (tabId === 'tab-settings') document.getElementById('btn-tab-settings').classList.add('active');
+
+            document.getElementById(tabId).classList.add('active');
+            
+            // Re-fetch data depending on tabs
+            fetchDashboardData();
+        }
+
+        // 4. Load Data
+        async function fetchDashboardData() {
+            try {
+                // Load Clubs
+                const clubsRes = await fetch('/api/clubs');
+                clubsList = await clubsRes.json();
+                
+                // Load Registrations (requires admin header)
+                const regRes = await fetch('/api/admin/registrations', {
+                    headers: { 'X-Admin-Token': adminToken }
+                });
+                if (regRes.status === 401) {
+                    handleLogout();
+                    return;
+                }
+                registrationsList = await regRes.json();
+                
+                // Load Settings (requires admin token or just general)
+                const settingsRes = await fetch('/api/admin/settings');
+                const settings = await settingsRes.json();
+
+                updateStats();
+                renderRegistrations();
+                renderClubs();
+                populateFilters();
+                populateSettingsForm(settings);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function updateStats() {
+            // Count total students
+            document.getElementById('stat-students').innerText = registrationsList.length;
+            
+            // Count total capacity & seats taken
+            let totalCapacity = 0;
+            clubsList.forEach(c => totalCapacity += c.capacity);
+            document.getElementById('stat-seats-taken').innerText = `${registrationsList.length} / ${totalCapacity}`;
+            
+            // Total clubs count
+            document.getElementById('stat-clubs').innerText = clubsList.length;
+        }
+
+        function populateFilters() {
+            const filter = document.getElementById('club-filter');
+            const currentSelected = filter.value;
+            filter.innerHTML = '<option value="">-- แสดงทุกชุมนุม --</option>';
+            
+            clubsList.forEach(club => {
+                const opt = document.createElement('option');
+                opt.value = club.name;
+                opt.innerText = `${club.name} (${club.teacher})`;
+                filter.appendChild(opt);
+            });
+            filter.value = currentSelected;
+        }
+
+        // 5. Render Registrations Tab
+        function renderRegistrations() {
+            const tbody = document.getElementById('registrations-tbody');
+            tbody.innerHTML = '';
+
+            const searchVal = document.getElementById('search-input').value.toLowerCase();
+            const clubVal = document.getElementById('club-filter').value;
+
+            const filtered = registrationsList.filter(student => {
+                const matchesSearch = 
+                    (student.firstname + ' ' + student.lastname).toLowerCase().includes(searchVal) ||
+                    student.level.toLowerCase().includes(searchVal) ||
+                    String(student.room).includes(searchVal) ||
+                    String(student.number).includes(searchVal) ||
+                    student.club_name.toLowerCase().includes(searchVal);
+                
+                const matchesClub = !clubVal || student.club_name === clubVal;
+
+                return matchesSearch && matchesClub;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center" style="color: var(--text-muted); padding: 2rem;">ไม่พบข้อมูลรายชื่อนักเรียน</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filtered.forEach((student, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td style="font-weight: 500;">${student.prefix}${student.firstname} ${student.lastname}</td>
+                    <td>${student.level}/${student.room}</td>
+                    <td>${student.number}</td>
+                    <td style="color: var(--primary); font-weight: 500;">${student.club_name}</td>
+                    <td>${student.club_teacher}</td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">${formatDateTimeThai(student.registered_at)}</td>
+                    <td style="text-align: center;">
+                        <button onclick="deleteRegistration(${student.id}, '${student.prefix}${student.firstname} ${student.lastname}')" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                            ลบ
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterRegistrations() {
+            renderRegistrations();
+        }
+
+        async function deleteRegistration(id, name) {
+            if (!confirm(`คุณต้องการลบรายชื่อนักเรียน "${name}" ออกจากระบบและคืนสิทธิ์ที่นั่งใช่หรือไม่?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/registrations/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Admin-Token': adminToken }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchDashboardData();
+                } else {
+                    alert(data.error || "เกิดข้อผิดพลาดในการลบ");
+                }
+            } catch (err) {
+                alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+            }
+        }
+
+        function exportCSV() {
+            window.location.href = `/api/admin/export?token=${adminToken}`;
+        }
+
+        // 6. Render Clubs Tab
+        function renderClubs() {
+            const tbody = document.getElementById('clubs-tbody');
+            tbody.innerHTML = '';
+
+            clubsList.forEach(club => {
+                const tr = document.createElement('tr');
+                
+                // Show limit text
+                let limitText = "ไม่มีข้อจำกัด";
+                let limitClass = "badge-primary";
+                if (club.grade_limit === 'high_school') {
+                    limitText = "เฉพาะ ม.ปลาย";
+                    limitClass = "badge-danger";
+                }
+
+                // Delete button disabled if club has registered students
+                const hasStudents = club.registered > 0;
+                const deleteBtn = hasStudents 
+                    ? `<button class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: not-allowed;" disabled title="ไม่สามารถลบได้เนื่องจากมีนักเรียนสมัครอยู่">ลบ</button>` 
+                    : `<button onclick="deleteClub(${club.id}, '${club.name}')" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">ลบ</button>`;
+
+                tr.innerHTML = `
+                    <td>${club.id}</td>
+                    <td style="font-weight: 600;">${club.name}</td>
+                    <td>${club.teacher}</td>
+                    <td style="text-align: center;">
+                        <span style="font-weight: 600; color: ${club.registered >= club.capacity ? 'var(--danger)' : 'var(--success)'}">
+                            ${club.registered}
+                        </span>
+                        / ${club.capacity}
+                    </td>
+                    <td>
+                        <span class="badge ${limitClass}">${limitText}</span>
+                    </td>
+                    <td style="text-align: center; display: flex; justify-content: center; gap: 0.5rem;">
+                        <button onclick="openClubModal('edit', ${JSON.stringify(club).replace(/"/g, '&quot;')})" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                            แก้ไข
+                        </button>
+                        ${deleteBtn}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function deleteClub(id, name) {
+            if (!confirm(`คุณต้องการลบกิจกรรมชุมนุม "${name}" ออกจากระบบใช่หรือไม่?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/clubs/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Admin-Token': adminToken }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchDashboardData();
+                } else {
+                    alert(data.error || "เกิดข้อผิดพลาดในการลบชุมนุม");
+                }
+            } catch (err) {
+                alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+            }
+        }
+
+        // 7. Add/Edit Club Modal Handlers
+        function openClubModal(mode, club = null) {
+            currentModalMode = mode;
+            const modal = document.getElementById('club-modal');
+            const title = document.getElementById('modal-title');
+            
+            document.getElementById('modal-error-alert').style.display = 'none';
+
+            if (mode === 'add') {
+                title.innerText = "เพิ่มกิจกรรมชุมนุมใหม่";
+                document.getElementById('modal-club-id').value = '';
+                document.getElementById('modal-club-name').value = '';
+                document.getElementById('modal-club-teacher').value = '';
+                document.getElementById('modal-club-capacity').value = 30;
+                document.getElementById('modal-club-limit').value = 'none';
+            } else {
+                title.innerText = "แก้ไขข้อมูลกิจกรรมชุมนุม";
+                document.getElementById('modal-club-id').value = club.id;
+                document.getElementById('modal-club-name').value = club.name;
+                document.getElementById('modal-club-teacher').value = club.teacher;
+                document.getElementById('modal-club-capacity').value = club.capacity;
+                document.getElementById('modal-club-limit').value = club.grade_limit;
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function closeClubModal() {
+            document.getElementById('club-modal').style.display = 'none';
+        }
+
+        async function handleClubSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('modal-club-id').value;
+            const name = document.getElementById('modal-club-name').value.trim();
+            const teacher = document.getElementById('modal-club-teacher').value.trim();
+            const capacity = document.getElementById('modal-club-capacity').value;
+            const grade_limit = document.getElementById('modal-club-limit').value;
+
+            const url = currentModalMode === 'add' ? '/api/admin/clubs' : `/api/admin/clubs/${id}`;
+            const method = currentModalMode === 'add' ? 'POST' : 'PUT';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Token': adminToken
+                    },
+                    body: JSON.stringify({ name, teacher, capacity: parseInt(capacity), grade_limit })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    closeClubModal();
+                    fetchDashboardData();
+                } else {
+                    const alertDiv = document.getElementById('modal-error-alert');
+                    alertDiv.style.display = 'flex';
+                    alertDiv.innerText = data.error || "เกิดข้อผิดพลาดในการบันทึก";
+                }
+            } catch (err) {
+                console.error(err);
+                alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+            }
+        }
+
+        // 8. Settings Form Handlers
+        function populateSettingsForm(settings) {
+            document.getElementById('settings-status').value = settings.reg_status || 'open';
+            document.getElementById('settings-start').value = settings.reg_start || '';
+            document.getElementById('settings-end').value = settings.reg_end || '';
+            document.getElementById('settings-password').value = '';
+            
+            document.getElementById('settings-success').style.display = 'none';
+            document.getElementById('settings-error').style.display = 'none';
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const reg_status = document.getElementById('settings-status').value;
+            const reg_start = document.getElementById('settings-start').value;
+            const reg_end = document.getElementById('settings-end').value;
+            const new_pass = document.getElementById('settings-password').value;
+
+            const payload = {
+                reg_status,
+                reg_start,
+                reg_end
+            };
+
+            if (new_pass) {
+                payload.admin_password = new_pass;
+            }
+
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Token': adminToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('settings-success').style.display = 'flex';
+                    document.getElementById('settings-password').value = '';
+                    
+                    // Re-read settings
+                    setTimeout(() => {
+                        fetchDashboardData();
+                    }, 1000);
+                } else {
+                    document.getElementById('settings-error').innerText = data.error || "บันทึกการตั้งค่าล้มเหลว";
+                    document.getElementById('settings-error').style.display = 'flex';
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('settings-error').innerText = "ไม่สามารถติดต่อเครื่องแม่ข่ายได้";
+                document.getElementById('settings-error').style.display = 'flex';
+            }
+        }
+
+        // Helpers
+        function formatDateTimeThai(dateTimeStr) {
+            if (!dateTimeStr) return "-";
+            const normalized = dateTimeStr.replace(' ', 'T');
+            const dt = new Date(normalized);
+            if (isNaN(dt.getTime())) return dateTimeStr;
+            return dt.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) + " น.";
+        }
+    </script>
+</body>
+</html>
