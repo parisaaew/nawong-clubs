@@ -153,31 +153,61 @@
 
     <script>
         let clubsList = [];
+        let currentSettings = {};
+        let statusTimer = null;
+
+        function getThaiNowStr() {
+            const now = new Date();
+            const tzOffset = 7 * 60 * 60000; // UTC+7 เวลาประเทศไทย
+            return new Date(now.getTime() + tzOffset).toISOString().slice(0, 16);
+        }
+
+        function normalizeDateTime(dtStr) {
+            if (!dtStr) return "";
+            const match = dtStr.trim().match(/^(\d{4})-(.+)$/);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                if (year >= 2400) year -= 543; // แปลง พ.ศ. เป็น ค.ศ. อัตโนมัติ
+                return String(year).padStart(4, '0') + '-' + match[2];
+            }
+            return dtStr.trim();
+        }
 
         // Check system status and load clubs
         async function init() {
             try {
                 // Fetch settings first to see if system is open
-                const settingsRes = await fetch('/api/admin/settings');
-                const settings = await settingsRes.json();
+                const settingsRes = await fetch('/api/admin/settings?t=' + Date.now(), { cache: 'no-store' });
+                currentSettings = await settingsRes.json();
                 
                 // Fetch clubs list
-                const clubsRes = await fetch('/api/clubs');
+                const clubsRes = await fetch('/api/clubs?t=' + Date.now(), { cache: 'no-store' });
                 clubsList = await clubsRes.json();
 
-                // Determine if open
-                const isOpen = checkSystemOpen(settings);
-                
-                if (isOpen) {
-                    document.getElementById('registration-container').style.display = 'block';
-                    renderClubs();
-                } else {
-                    document.getElementById('status-container').style.display = 'block';
-                    displayStatusMessage(settings);
-                }
+                applySystemStatus();
+                if (statusTimer) clearInterval(statusTimer);
+                statusTimer = setInterval(applySystemStatus, 1000);
             } catch (err) {
                 console.error(err);
                 showError("ไม่สามารถติดต่อเครื่องแม่ข่ายได้ กรุณาลองใหม่อีกครั้ง");
+            }
+        }
+
+        function applySystemStatus() {
+            const isOpen = checkSystemOpen(currentSettings);
+            const regContainer = document.getElementById('registration-container');
+            const statusContainer = document.getElementById('status-container');
+
+            if (isOpen) {
+                if (regContainer.style.display !== 'block') {
+                    statusContainer.style.display = 'none';
+                    regContainer.style.display = 'block';
+                    renderClubs();
+                }
+            } else {
+                regContainer.style.display = 'none';
+                statusContainer.style.display = 'block';
+                displayStatusMessage(currentSettings);
             }
         }
 
@@ -185,11 +215,14 @@
             if (settings.reg_status === 'closed') {
                 return false;
             }
-            const now = new Date().toISOString().slice(0, 16);
-            if (settings.reg_start && now < settings.reg_start) {
+            const now = getThaiNowStr();
+            const start = normalizeDateTime(settings.reg_start);
+            const end = normalizeDateTime(settings.reg_end);
+
+            if (start && now < start) {
                 return false;
             }
-            if (settings.reg_end && now > settings.reg_end) {
+            if (end && now > end) {
                 return false;
             }
             return true;
@@ -207,27 +240,33 @@
                 return;
             }
 
-            const now = new Date().toISOString().slice(0, 16);
-            if (settings.reg_start && now < settings.reg_start) {
+            timeInfo.style.display = "inline-block";
+            const now = getThaiNowStr();
+            const start = normalizeDateTime(settings.reg_start);
+            const end = normalizeDateTime(settings.reg_end);
+
+            if (start && now < start) {
                 statusTitle.innerText = "ระบบยังไม่เปิดรับลงทะเบียน";
-                statusMessage.innerText = "การลงทะเบียนกิจกรรมชุมนุมจะเปิดตามกำหนดเวลาด้านล่างนี้";
+                statusMessage.innerText = "การลงทะเบียนกิจกรรมชุมนุมจะเปิดตามกำหนดเวลาด้านล่างนี้ (หน้าเว็บจะเปิดให้อัตโนมัติเมื่อถึงเวลา)";
                 timeInfo.innerHTML = `
-                    <strong>เวลาเปิดระบบ:</strong> ${formatDateTimeThai(settings.reg_start)} <br>
-                    <strong>เวลาปิดระบบ:</strong> ${settings.reg_end ? formatDateTimeThai(settings.reg_end) : 'เปิดเรื่อยๆ จนกว่าแอดมินจะปิด'}
+                    <strong>เวลาเปิดระบบ:</strong> ${formatDateTimeThai(start)} <br>
+                    <strong>เวลาปิดระบบ:</strong> ${end ? formatDateTimeThai(end) : 'เปิดเรื่อยๆ จนกว่าแอดมินจะปิด'}
                 `;
-            } else if (settings.reg_end && now > settings.reg_end) {
+            } else if (end && now > end) {
                 statusTitle.innerText = "ระบบปิดรับลงทะเบียนแล้ว";
                 statusMessage.innerText = "สิ้นสุดช่วงเวลาเปิดให้ลงทะเบียนเลือกชุมนุมแล้ว";
                 timeInfo.innerHTML = `
-                    <strong>เวลาเปิดระบบ:</strong> ${settings.reg_start ? formatDateTimeThai(settings.reg_start) : '-'}<br>
-                    <strong>เวลาปิดระบบ:</strong> ${formatDateTimeThai(settings.reg_end)}
+                    <strong>เวลาเปิดระบบ:</strong> ${start ? formatDateTimeThai(start) : '-'}<br>
+                    <strong>เวลาปิดระบบ:</strong> ${formatDateTimeThai(end)}
                 `;
             }
         }
 
         function formatDateTimeThai(isoString) {
             if (!isoString) return "-";
-            const dt = new Date(isoString);
+            const normalized = normalizeDateTime(isoString);
+            const dt = new Date(normalized);
+            if (isNaN(dt.getTime())) return isoString;
             return dt.toLocaleDateString('th-TH', {
                 year: 'numeric',
                 month: 'long',

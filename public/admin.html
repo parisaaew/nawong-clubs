@@ -84,7 +84,7 @@
                     </button>
                 </div>
 
-                <div id="reg-error-alert" class="alert alert-danger"></div>
+                <div id="reg-error-alert" class="alert alert-danger" style="display: none;"></div>
 
                 <div class="table-container">
                     <table>
@@ -120,7 +120,7 @@
                     </button>
                 </div>
 
-                <div id="club-error-alert" class="alert alert-danger"></div>
+                <div id="club-error-alert" class="alert alert-danger" style="display: none;"></div>
 
                 <div class="table-container">
                     <table>
@@ -148,14 +148,14 @@
                 <div class="content-box" style="padding: 1.5rem; max-width: 600px; margin: 0 auto;">
                     <h3 style="margin-bottom: 1.5rem; color: var(--primary);">การเปิด-ปิด ระบบรับสมัคร</h3>
                     
-                    <div id="settings-success" class="alert alert-success">บันทึกการตั้งค่าระบบเรียบร้อยแล้ว</div>
-                    <div id="settings-error" class="alert alert-danger"></div>
+                    <div id="settings-success" class="alert alert-success" style="display: none;">บันทึกการตั้งค่าระบบเรียบร้อยแล้ว</div>
+                    <div id="settings-error" class="alert alert-danger" style="display: none;"></div>
 
                     <form id="settings-form" onsubmit="saveSettings(event)">
                         <div class="form-group">
                             <label for="settings-status">สถานะระบบ (ควบคุมด้วยตนเอง)</label>
                             <select id="settings-status">
-                                <option value="open">เปิดระบบรับสมัคร</option>
+                                <option value="open">เปิดระบบรับสมัคร (ตามเวลาที่กำหนด หรือเปิดตลอดหากไม่ระบุเวลา)</option>
                                 <option value="closed">ปิดระบบรับสมัครชั่วคราว (Manual Override)</option>
                             </select>
                         </div>
@@ -169,6 +169,11 @@
                                 <label for="settings-end">วัน-เวลาที่ปิดระบบ</label>
                                 <input type="datetime-local" id="settings-end">
                             </div>
+                        </div>
+                        <div style="margin-top: -0.75rem; margin-bottom: 1.25rem; text-align: right;">
+                            <button type="button" onclick="document.getElementById('settings-start').value=''; document.getElementById('settings-end').value='';" class="btn btn-secondary btn-sm" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">
+                                ล้างค่าเวลาเปิด-ปิด (ให้เปิดตลอด)
+                            </button>
                         </div>
 
                         <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary); border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
@@ -605,22 +610,38 @@
         }
 
         // 8. Settings Form Handlers
-        function populateSettingsForm(settings) {
+        function normalizeDateTime(dtStr) {
+            if (!dtStr) return "";
+            const match = dtStr.trim().match(/^(\d{4})-(.+)$/);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                if (year >= 2400) year -= 543;
+                return String(year).padStart(4, '0') + '-' + match[2];
+            }
+            return dtStr.trim();
+        }
+
+        function populateSettingsForm(settings, keepAlert = false) {
             document.getElementById('settings-status').value = settings.reg_status || 'open';
-            document.getElementById('settings-start').value = settings.reg_start || '';
-            document.getElementById('settings-end').value = settings.reg_end || '';
+            document.getElementById('settings-start').value = normalizeDateTime(settings.reg_start || '');
+            document.getElementById('settings-end').value = normalizeDateTime(settings.reg_end || '');
             document.getElementById('settings-password').value = '';
             
-            document.getElementById('settings-success').style.display = 'none';
-            document.getElementById('settings-error').style.display = 'none';
+            if (!keepAlert) {
+                document.getElementById('settings-success').style.display = 'none';
+                document.getElementById('settings-error').style.display = 'none';
+            }
         }
 
         async function saveSettings(e) {
             e.preventDefault();
             const reg_status = document.getElementById('settings-status').value;
-            const reg_start = document.getElementById('settings-start').value;
-            const reg_end = document.getElementById('settings-end').value;
+            const reg_start = normalizeDateTime(document.getElementById('settings-start').value);
+            const reg_end = normalizeDateTime(document.getElementById('settings-end').value);
             const new_pass = document.getElementById('settings-password').value;
+
+            document.getElementById('settings-start').value = reg_start;
+            document.getElementById('settings-end').value = reg_end;
 
             const payload = {
                 reg_status,
@@ -643,13 +664,13 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    document.getElementById('settings-error').style.display = 'none';
                     document.getElementById('settings-success').style.display = 'flex';
                     document.getElementById('settings-password').value = '';
                     
-                    // Re-read settings
                     setTimeout(() => {
-                        fetchDashboardData();
-                    }, 1000);
+                        document.getElementById('settings-success').style.display = 'none';
+                    }, 3000);
                 } else {
                     document.getElementById('settings-error').innerText = data.error || "บันทึกการตั้งค่าล้มเหลว";
                     document.getElementById('settings-error').style.display = 'flex';
